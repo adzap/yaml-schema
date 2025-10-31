@@ -1,0 +1,404 @@
+require "minitest/autorun"
+require "yaml-schema"
+
+module YAMLSchema
+  class Validator
+    class ErrorTest < Minitest::Test
+      def test_missing_tag
+        ast = Psych.parse("foo: bar")
+        assert_raises UnexpectedTag do
+          Validator.validate({
+            "type" => "object",
+            "tag" => "aaron"
+          }, ast.children.first)
+        end
+      end
+
+      def test_wrong_tag
+        ast = Psych.parse("--- !lolol\nfoo: bar")
+        ex = assert_raises UnexpectedTag do
+          Validator.validate({
+            "type" => "object",
+            "tag" => "aaron"
+          }, ast.children.first)
+        end
+        assert_match(/lolol/, ex.message)
+      end
+
+      def test_wrong_type
+        ast = Psych.parse("foo: bar")
+        ex = assert_raises UnexpectedType do
+          Validator.validate({
+            "type" => "string",
+          }, ast.children.first)
+        end
+        assert_match(/Scalar/, ex.message)
+
+        ast = Psych.parse("foo")
+        ex = assert_raises UnexpectedType do
+          Validator.validate({
+            "type" => "object",
+          }, ast.children.first)
+        end
+        assert_match(/Mapping/, ex.message)
+
+        ast = Psych.parse("foo")
+        ex = assert_raises UnexpectedType do
+          Validator.validate({
+            "type" => "array",
+          }, ast.children.first)
+        end
+        assert_match(/Sequence/, ex.message)
+      end
+
+      def test_null_error
+        ast = Psych.parse("foo")
+        ex = assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "null",
+          }, ast.children.first)
+        end
+        assert_match(/empty string/, ex.message)
+
+        ast = Psych.parse("foo: bar")
+        ex = assert_raises UnexpectedType do
+          Validator.validate({
+            "type" => "null",
+          }, ast.children.first)
+        end
+        assert_match(/Scalar/, ex.message)
+      end
+
+      def test_boolean_error
+        ast = Psych.parse("foo")
+        ex = assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "boolean",
+          }, ast.children.first)
+        end
+        assert_match(/true/, ex.message)
+
+        ast = Psych.parse("foo: bar")
+        ex = assert_raises UnexpectedType do
+          Validator.validate({
+            "type" => "boolean",
+          }, ast.children.first)
+        end
+        assert_match(/Scalar/, ex.message)
+      end
+
+      def test_integer_error
+        ast = Psych.parse("foo")
+        ex = assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "integer",
+          }, ast.children.first)
+        end
+        assert_match(/expected integer/, ex.message)
+
+        ast = Psych.parse("'foo'")
+        ex = assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "integer",
+          }, ast.children.first)
+        end
+        assert_match(/expected integer/, ex.message)
+
+        ast = Psych.parse("foo: bar")
+        ex = assert_raises UnexpectedType do
+          Validator.validate({
+            "type" => "integer",
+          }, ast.children.first)
+        end
+        assert_match(/Scalar/, ex.message)
+      end
+
+      def test_error_in_array_sequence
+        ast = Psych.parse("- foo\n- 1")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "array",
+            "items" => { "type" => "integer" }
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("- 1\n- foo")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "array",
+            "items" => { "type" => "integer" }
+          }, ast.children.first)
+        end
+      end
+
+      def test_error_in_array_sequence_prefixItems
+        ast = Psych.parse("- foo\n- 1")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "array",
+            "prefixItems" => [
+              { "type" => "integer" },
+              { "type" => "integer" },
+            ]
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("- foo\n- 1")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "array",
+            "prefixItems" => [
+              { "type" => "string" },
+              { "type" => "string" },
+            ]
+          }, ast.children.first)
+        end
+      end
+
+      def test_invalid_string
+        ast = Psych.parse("1")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "string",
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("false")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "string",
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("true")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "string",
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("--- ")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "string",
+          }, ast.children.first)
+        end
+      end
+
+      def test_valid_quoted_string
+        ast = Psych.parse("'1'")
+        assert Validator.validate({
+          "type" => "string",
+        }, ast.children.first)
+
+        ast = Psych.parse("'false'")
+        assert Validator.validate({
+          "type" => "string",
+        }, ast.children.first)
+
+        ast = Psych.parse("'true'")
+        assert Validator.validate({
+          "type" => "string",
+        }, ast.children.first)
+
+        ast = Psych.parse("--- ''")
+        assert Validator.validate({
+          "type" => "string",
+        }, ast.children.first)
+      end
+
+      def test_multiple_valid
+        ast = Psych.parse("'1'")
+        assert Validator.validate({
+          "type" => ["string", "integer"],
+        }, ast.children.first)
+      end
+
+      def test_multiple_invalid
+        ast = Psych.parse("'1'")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => ["null", "integer"],
+          }, ast.children.first)
+        end
+      end
+
+      def test_multiple_valid_array_type
+        ast = Psych.parse("- '1'")
+        assert Validator.validate({
+          "type" => ["null", "array"],
+          "items" => { "type" => "string" }
+        }, ast.children.first)
+      end
+
+      def test_multiple_invalid_array_type
+        ast = Psych.parse("- '1'")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => ["null", "array"],
+            "items" => { "type" => "integer" }
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("- 1\n- '123'")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => ["null", "array"],
+            "items" => { "type" => "integer" }
+          }, ast.children.first)
+        end
+      end
+
+      def test_array_mixed_types
+        ast = Psych.parse(<<-eoyml)
+---
+segments: 
+- 3
+- 0
+- 0
+- beta3
+        eoyml
+        assert Validator.validate({
+          "type" => "object",
+          "properties" => {
+            "segments" => {
+              "type" => "array",
+              "items" => { "type" => ["integer", "string"] },
+            }
+          }
+        }, ast.children.first)
+      end
+
+      def test_nullable_with_tag
+        schema = {
+          "type" => ["null", "object"],
+          "tag" => "!foo",
+          "properties" => {
+            "segments" => { "type" => "string" }
+          }
+        }
+
+        ast = Psych.parse(<<-eoyml)
+--- !foo
+segments: foo
+        eoyml
+
+        assert Validator.validate(schema, ast.children.first)
+
+        ast = Psych.parse("---")
+
+        assert Validator.validate(schema, ast.children.first)
+      end
+
+      def test_array_max_items
+        ast = Psych.parse("- 0\n- 1")
+        assert Validator.validate({
+          "type" => "array",
+          "items" => { "type" => "integer" },
+          "maxItems" => 2,
+        }, ast.children.first)
+
+        ast = Psych.parse("- 0\n- 1")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "array",
+            "items" => { "type" => "integer" },
+            "maxItems" => 1,
+          }, ast.children.first)
+        end
+      end
+
+      def test_unexpected_tag
+        ast = Psych.parse("--- !lolol\n foo")
+        ex = assert_raises UnexpectedTag do
+          Validator.validate({
+            "type" => "string",
+          }, ast.children.first)
+        end
+        assert_match(/lolol/, ex.message)
+      end
+
+      def test_object_without_specified_properties
+        ast = Psych.parse("---\nfoo: bar")
+        assert_raises InvalidSchema do
+          Validator.validate({
+            "type" => "object",
+          }, ast.children.first)
+        end
+      end
+
+      def test_invalid_sub_property
+        ast = Psych.parse("---\nfoo: \n  hello: world")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "object",
+            "properties" => {
+              "foo" => {
+                "type" => "object",
+                "properties" => {
+                  "hello" => {"type" => "integer"}
+                }
+              }
+            }
+          }, ast.children.first)
+        end
+      end
+
+      def test_invalid_object_key_type # integer keys aren't allowed
+        ast = Psych.parse("---\nfoo: \n  1: 2")
+        ex = assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "object",
+            "properties" => {
+              "foo" => {
+                "type" => "object",
+                "properties" => {
+                  "hello" => {"type" => "integer"}
+                }
+              }
+            }
+          }, ast.children.first)
+        end
+        assert_match(/expected string, got integer/, ex.message)
+      end
+
+      def test_allow_objects_with_aliases
+        ast = Psych.parse(<<-eoyml)
+---
+foo: &1
+- foo
+bar: *1
+        eoyml
+        assert Validator.validate({
+          "type" => "object",
+          "properties" => {
+            "foo" => { "type" => "array", "items" => { "type" => "string" } },
+            "bar" => { "type" => "array", "items" => { "type" => "string" } },
+          },
+        }, ast.children.first)
+      end
+
+      class CustomInfo
+        def read_tag(node)
+          if node.tag == "!aaron"
+            "test"
+          else
+            node.tag
+          end
+        end
+      end
+
+      def test_custom_node_info
+        validator = Validator.new(CustomInfo.new)
+        ast = Psych.parse("--- !aaron\nfoo: bar")
+        validator.validate({
+          "type" => "object",
+          "tag" => "test",
+          "properties" => {
+            "foo" => { "type" => "string" }
+          }
+        }, ast.children.first)
+      end
+    end
+  end
+end
