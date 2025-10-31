@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "psych"
-
 module YAMLSchema
   class Validator
     class UnexpectedType < Exception; end
