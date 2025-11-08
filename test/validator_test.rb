@@ -5,6 +5,32 @@ require "psych"
 module YAMLSchema
   class Validator
     class ErrorTest < Minitest::Test
+      def test_missing_required
+        ast = Psych.parse("foo: bar")
+        assert_raises MissingRequiredField do
+          Validator.validate({
+            "type" => "object",
+            "properties" => {
+              "foo" => { "type" => "string" },
+              "bar" => { "type" => "string" },
+              "baz" => { "type" => "string" },
+            },
+            "required" => [ "foo", "baz"],
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("---\n  foo: bar\n  baz: hello")
+        assert Validator.validate({
+          "type" => "object",
+          "properties" => {
+            "foo" => { "type" => "string" },
+            "bar" => { "type" => "string" },
+            "baz" => { "type" => "string" },
+          },
+          "required" => [ "foo", "baz"],
+        }, ast.children.first)
+      end
+
       def test_missing_tag
         ast = Psych.parse("foo: bar")
         assert_raises UnexpectedTag do

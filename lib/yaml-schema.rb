@@ -1,6 +1,61 @@
 # frozen_string_literal: true
 
 module YAMLSchema
+  class Pointer
+    include Enumerable
+
+    class Exception < StandardError
+    end
+
+    class FormatError < Exception
+    end
+
+    def initialize path
+      @path = Pointer.parse path
+    end
+
+    def each(&block); @path.each(&block); end
+
+    def eval object
+      Pointer.eval @path, object
+    end
+
+    ESC = {'^/' => '/', '^^' => '^', '~0' => '~', '~1' => '/'} # :nodoc:
+
+    def self.eval list, object
+      node = list.inject(object) { |o, part|
+        return nil unless o
+
+        if o.sequence?
+          raise Patch::IndexError unless part =~ /\A(?:\d|[1-9]\d+)\Z/
+          o.children[part.to_i]
+        else
+          o.children.each_slice(2) do |key, value|
+            if key.value == part
+              break value
+            end
+          end
+        end
+      }
+    end
+
+    def self.parse path
+      return [''] if path == '/'
+      return []   if path == ''
+
+      unless path.start_with? '/'
+        raise FormatError, "JSON Pointer should start with a slash"
+      end
+
+      parts = path.sub(/^\//, '').split(/(?<!\^)\//).each { |part|
+        part.gsub!(/\^[\/^]|~[01]/) { |m| ESC[m] }
+      }
+
+      parts.push("") if path[-1] == '/'
+      parts
+    end
+  end
+
   class Validator
     class Exception < StandardError; end
     class UnexpectedType < Exception; end
@@ -8,6 +63,7 @@ module YAMLSchema
     class UnexpectedTag < Exception; end
     class UnexpectedValue < Exception; end
     class InvalidSchema < Exception; end
+    class MissingRequiredField < Exception; end
 
     Valid = Struct.new(:exception).new.freeze
 
@@ -123,6 +179,13 @@ module YAMLSchema
             valid = _validate(sub_schema["type"], sub_schema, val, valid, aliases, path + [key.value])
 
             return valid if valid.exception
+          end
+
+          if schema["required"]
+            missing_fields = properties.keys & schema["required"]
+            unless missing_fields.empty?
+              return make_error MissingRequiredField, "missing fields #{missing_fields.map(&:dump).join(" ")}", path
+            end
           end
         else
           if schema["items"]
