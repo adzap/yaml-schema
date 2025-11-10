@@ -5,6 +5,21 @@ require "psych"
 module YAMLSchema
   class Validator
     class ErrorTest < Minitest::Test
+      def test_regular_expression
+        ast = Psych.parse("bar")
+        assert_raises InvalidString do
+          Validator.validate({
+            "type" => "string",
+            "pattern" => /foo/
+          }, ast.children.first)
+        end
+
+        assert Validator.validate({
+          "type" => "string",
+          "pattern" => /bar/
+        }, ast.children.first)
+      end
+
       def test_missing_required
         ast = Psych.parse("foo: bar")
         assert_raises MissingRequiredField do

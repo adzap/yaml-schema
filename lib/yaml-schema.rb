@@ -23,7 +23,7 @@ module YAMLSchema
     ESC = {'^/' => '/', '^^' => '^', '~0' => '~', '~1' => '/'} # :nodoc:
 
     def self.eval list, object
-      node = list.inject(object) { |o, part|
+      list.inject(object) { |o, part|
         return nil unless o
 
         if o.sequence?
@@ -63,6 +63,7 @@ module YAMLSchema
     class UnexpectedTag < Exception; end
     class UnexpectedValue < Exception; end
     class InvalidSchema < Exception; end
+    class InvalidString < Exception; end
     class MissingRequiredField < Exception; end
 
     Valid = Struct.new(:exception).new.freeze
@@ -217,6 +218,10 @@ module YAMLSchema
           if node.value.match?(/^[-+]?(?:0|[1-9](?:[0-9]|,[0-9]|_[0-9])*)$/)
             return make_error UnexpectedValue, "expected string, got integer", path
           end
+        end
+
+        if schema["pattern"] && !(node.value.match?(schema["pattern"]))
+            return make_error InvalidString, "expected string to match #{schema["pattern"]}", path
         end
       when "array"
         unless node.sequence?
