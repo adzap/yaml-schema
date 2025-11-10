@@ -220,6 +220,14 @@ module YAMLSchema
           end
         end
 
+        if schema["maxLength"] && node.value.bytesize > schema["maxLength"]
+            return make_error InvalidString, "expected string length to be <= #{schema["maxLength"]}", path
+        end
+
+        if schema["minLength"] && node.value.bytesize < schema["minLength"]
+            return make_error InvalidString, "expected string length to be >= #{schema["minLength"]}", path
+        end
+
         if schema["pattern"] && !(node.value.match?(schema["pattern"]))
             return make_error InvalidString, "expected string to match #{schema["pattern"]}", path
         end

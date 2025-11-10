@@ -5,6 +5,38 @@ require "psych"
 module YAMLSchema
   class Validator
     class ErrorTest < Minitest::Test
+      def test_string_min_length
+        ast = Psych.parse("--- hello")
+        assert_raises InvalidString do
+          Validator.validate({
+            "type" => "string",
+            "minLength" => 6,
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("--- hello")
+        assert Validator.validate({
+          "type" => "string",
+          "minLength" => 5,
+        }, ast.children.first)
+      end
+
+      def test_string_max_length
+        ast = Psych.parse("--- hello")
+        assert_raises InvalidString do
+          Validator.validate({
+            "type" => "string",
+            "maxLength" => 4,
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("--- hello")
+        assert Validator.validate({
+          "type" => "string",
+          "maxLength" => 5,
+        }, ast.children.first)
+      end
+
       def test_minItems
         ast = Psych.parse("---\n- bar")
         assert_raises UnexpectedValue do
