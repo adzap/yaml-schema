@@ -169,8 +169,9 @@ module YAMLSchema
         end
         if schema["properties"]
           properties = schema["properties"].dup
+          key_restriction = schema["propertyNames"] || {}
           node.children.each_slice(2) do |key, val|
-            valid = _validate("string", {}, key, valid, aliases, path)
+            valid = _validate("string", key_restriction, key, valid, aliases, path)
 
             return valid if valid.exception
 
