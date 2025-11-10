@@ -232,6 +232,10 @@ module YAMLSchema
           return make_error UnexpectedValue, "expected maximum #{schema["maxItems"]} items, but found #{node.children.length}", path
         end
 
+        if schema["minItems"] && node.children.length < schema["minItems"]
+          return make_error UnexpectedValue, "expected minimum #{schema["minItems"]} items, but found #{node.children.length}", path
+        end
+
         if schema["items"]
           node.children.each_with_index { |item, i|
             sub_schema = schema["items"]

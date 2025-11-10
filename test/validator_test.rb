@@ -5,6 +5,24 @@ require "psych"
 module YAMLSchema
   class Validator
     class ErrorTest < Minitest::Test
+      def test_minItems
+        ast = Psych.parse("---\n- bar")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "array",
+            "items" => { "type" => "string" },
+            "minItems" => 2
+          }, ast.children.first)
+        end
+
+        ast = Psych.parse("---\n- bar")
+        assert Validator.validate({
+          "type" => "array",
+          "items" => { "type" => "string" },
+          "minItems" => 1
+        }, ast.children.first)
+      end
+
       def test_regular_expression
         ast = Psych.parse("bar")
         assert_raises InvalidString do
