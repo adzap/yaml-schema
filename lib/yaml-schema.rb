@@ -177,11 +177,7 @@ module YAMLSchema
 
             sub_schema = properties.delete(key.value) {
               if schema["additionalProperties"]
-                if schema["items"]
-                  schema["items"]
-                else
-                  raise InvalidSchema, "objects must specify items or properties"
-                end
+                schema["additionalProperties"]
               else
                 return make_error UnexpectedProperty, "unknown property #{key.value.dump}", path
               end

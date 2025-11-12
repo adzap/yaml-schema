@@ -49,8 +49,24 @@ module YAMLSchema
             "hello" => { "type" => "string" },
           },
           "items" => { "type" => "string" },
-          "additionalProperties" => true
+          "additionalProperties" => {
+            "type" => "string"
+          },
         }, ast.children.first)
+
+        ast = Psych.parse("---\n  hello: world\n  foo: bar")
+        assert_raises UnexpectedValue do
+          Validator.validate({
+            "type" => "object",
+            "properties" => {
+              "hello" => { "type" => "string" },
+            },
+            "items" => { "type" => "string" },
+            "additionalProperties" => {
+              "type" => "null"
+            },
+          }, ast.children.first)
+        end
       end
 
       def test_string_min_length
