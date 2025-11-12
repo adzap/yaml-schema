@@ -1,14 +1,13 @@
 # frozen_string_literal: true
 
 module YAMLSchema
+  VERSION = "1.0.1"
+
   class Pointer
     include Enumerable
 
-    class Exception < StandardError
-    end
-
-    class FormatError < Exception
-    end
+    class Exception < StandardError; end
+    class FormatError < Exception; end
 
     def initialize path
       @path = Pointer.parse path
@@ -19,16 +18,23 @@ module YAMLSchema
     def eval object
       Pointer.eval @path, object
     end
+    alias :[] :eval
 
     ESC = {'^/' => '/', '^^' => '^', '~0' => '~', '~1' => '/'} # :nodoc:
 
-    def self.eval list, object
+    def self.[] path, object
+      eval parse(path), object
+    end
+
+    def self.eval list, object # :nodoc:
+      object = object.children.first if object.document?
+
       list.inject(object) { |o, part|
         return nil unless o
 
         if o.sequence?
-          raise Patch::IndexError unless part =~ /\A(?:\d|[1-9]\d+)\Z/
-          o.children[part.to_i]
+          raise IndexError unless part =~ /\A(?:\d|[1-9]\d+)\Z/
+          o.children.fetch(part.to_i)
         else
           o.children.each_slice(2) do |key, value|
             if key.value == part
@@ -44,7 +50,7 @@ module YAMLSchema
       return []   if path == ''
 
       unless path.start_with? '/'
-        raise FormatError, "JSON Pointer should start with a slash"
+        raise FormatError, "Pointer should start with a slash"
       end
 
       parts = path.sub(/^\//, '').split(/(?<!\^)\//).each { |part|
@@ -226,15 +232,15 @@ module YAMLSchema
         end
 
         if schema["maxLength"] && node.value.bytesize > schema["maxLength"]
-            return make_error InvalidString, "expected string length to be <= #{schema["maxLength"]}", path
+          return make_error InvalidString, "expected string length to be <= #{schema["maxLength"]}", path
         end
 
         if schema["minLength"] && node.value.bytesize < schema["minLength"]
-            return make_error InvalidString, "expected string length to be >= #{schema["minLength"]}", path
+          return make_error InvalidString, "expected string length to be >= #{schema["minLength"]}", path
         end
 
         if schema["pattern"] && !(node.value.match?(schema["pattern"]))
-            return make_error InvalidString, "expected string to match #{schema["pattern"]}", path
+          return make_error InvalidString, "expected string to match #{schema["pattern"]}", path
         end
       when "array"
         unless node.sequence?
