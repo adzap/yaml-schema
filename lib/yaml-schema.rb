@@ -270,26 +270,28 @@ module YAMLSchema
             return make_error UnexpectedValue, "expected #{type}, got string", path
           end
 
-          if schema["pattern"] && !(node.value.match?(schema["pattern"]))
-            return make_error InvalidPattern, "expected '#{node.value.dump}' to match #{schema["pattern"]}", path
-          end
-
-          case type
-          when "null"
+          if type == "null"
             unless node.value == ""
               return make_error UnexpectedValue, "expected empty string, got #{node.value.dump}", path
             end
-          when "boolean"
-            unless node.value == "false" || node.value == "true"
-              return make_error UnexpectedValue, "expected 'true' or 'false' for boolean", path
-            end
-          when "integer", "float", "time", "date", "symbol"
-            found_type = extract_type(node.value)
-            unless found_type == type.to_sym
-              return make_error UnexpectedValue, "expected #{type}, got #{type}", path
-            end
           else
-            raise "unknown type #{schema["type"]}"
+            if schema["pattern"] && !(node.value.match?(schema["pattern"]))
+              return make_error InvalidPattern, "expected '#{node.value.dump}' to match #{schema["pattern"]}", path
+            end
+
+            case type
+            when "boolean"
+              unless node.value == "false" || node.value == "true"
+                return make_error UnexpectedValue, "expected 'true' or 'false' for boolean", path
+              end
+            when "integer", "float", "time", "date", "symbol"
+              found_type = extract_type(node.value)
+              unless found_type == type.to_sym
+                return make_error UnexpectedValue, "expected #{type}, got #{type}", path
+              end
+            else
+              raise "unknown type #{schema["type"]}"
+            end
           end
         end
       end

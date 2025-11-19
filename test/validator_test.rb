@@ -20,6 +20,7 @@ module YAMLSchema
           }, ast.children.first)
         end
       end
+
       def test_pattern_time
         ast = Psych.parse(Psych.dump({ "foo" => Time.now }))
 
@@ -39,17 +40,15 @@ module YAMLSchema
       def test_pattern_null
         ast = Psych.parse(Psych.dump({ "foo" => nil }))
 
-        assert_raises InvalidPattern do
-          Validator.validate({
-            "type" => "object",
-            "properties" => {
-              "foo" => {
-                "type" => "null",
-                "pattern" => /\Anotnull\z/
-              },
+        assert Validator.validate({
+          "type" => "object",
+          "properties" => {
+            "foo" => {
+              "type" => "null",
+              "pattern" => /\Anotnull\z/
             },
-          }, ast.children.first)
-        end
+          },
+        }, ast.children.first)
       end
 
       def test_pattern_float
