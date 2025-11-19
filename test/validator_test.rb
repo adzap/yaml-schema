@@ -1,6 +1,7 @@
 require "minitest/autorun"
 require "yaml-schema"
 require "psych"
+require "date"
 
 module YAMLSchema
   class Validator
