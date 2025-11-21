@@ -691,6 +691,24 @@ bar: *1
         }, ast.children.first)
       end
 
+      def test_optionally_disallow_aliases
+        ast = Psych.parse(<<-eoyml)
+---
+foo: &1
+- foo
+bar: *1
+        eoyml
+        assert_raises UnexpectedAlias do
+          Validator.validate({
+            "type" => "object",
+            "properties" => {
+              "foo" => { "type" => "array", "items" => { "type" => "string" } },
+              "bar" => { "type" => "array", "items" => { "type" => "string" } },
+            },
+          }, ast.children.first, aliases: false)
+        end
+      end
+
       class CustomInfo
         def read_tag(node)
           if node.tag == "!aaron"

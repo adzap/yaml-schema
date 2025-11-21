@@ -68,6 +68,7 @@ module YAMLSchema
     class UnexpectedProperty < Exception; end
     class UnexpectedTag < Exception; end
     class UnexpectedValue < Exception; end
+    class UnexpectedAlias < Exception; end
     class InvalidSchema < Exception; end
     class InvalidString < Exception; end
     class InvalidPattern < Exception; end
@@ -78,8 +79,8 @@ module YAMLSchema
     ##
     # Given a particular schema, validate that the node conforms to the
     # schema. Raises an exception if it is invalid
-    def self.validate(schema, node)
-      INSTANCE.validate schema, node
+    def self.validate(schema, node, aliases: true)
+      INSTANCE.validate schema, node, aliases: aliases
     end
 
     module NodeInfo # :nodoc:
@@ -97,8 +98,8 @@ module YAMLSchema
     ##
     # Given a particular schema, validate that the node conforms to the
     # schema. Raises an exception if it is invalid
-    def validate(schema, node)
-      val = _validate(schema["type"], schema, node, Valid, {}, ["root"])
+    def validate(schema, node, aliases: true)
+      val = _validate(schema["type"], schema, node, Valid, {}, ["root"], aliases)
       if val.exception
         raise val
       else
@@ -109,8 +110,8 @@ module YAMLSchema
     ##
     # Given a particular schema, validate that the node conforms to the
     # schema. Returns an error object if the node is invalid, otherwise false.
-    def invalid?(schema, node)
-      res = _validate(schema["type"], schema, node, Valid, {}, ["root"])
+    def invalid?(schema, node, aliases: true)
+      res = _validate(schema["type"], schema, node, Valid, {}, ["root"], aliases)
       if Valid == res
         false
       else
@@ -126,11 +127,12 @@ module YAMLSchema
       ex
     end
 
-    def _validate(type, schema, node, valid, aliases, path)
+    def _validate(type, schema, node, valid, aliases, path, allow_aliases)
       return valid if valid.exception
 
       if node.anchor
         if node.alias?
+          raise UnexpectedAlias unless allow_aliases
           node = aliases[node.anchor]
         else
           aliases[node.anchor] = node
@@ -142,7 +144,7 @@ module YAMLSchema
       if Array === type
         v = valid
         type.each do |t|
-          v = _validate t, schema, node, valid, aliases, path
+          v = _validate t, schema, node, valid, aliases, path, allow_aliases
           unless v.exception
             break
           end
@@ -178,7 +180,7 @@ module YAMLSchema
           properties = schema["properties"].dup
           key_restriction = schema["propertyNames"] || {}
           node.children.each_slice(2) do |key, val|
-            valid = _validate("string", key_restriction, key, valid, aliases, path)
+            valid = _validate("string", key_restriction, key, valid, aliases, path, allow_aliases)
 
             return valid if valid.exception
 
@@ -190,7 +192,7 @@ module YAMLSchema
               end
             }
 
-            valid = _validate(sub_schema["type"], sub_schema, val, valid, aliases, path + [key.value])
+            valid = _validate(sub_schema["type"], sub_schema, val, valid, aliases, path + [key.value], allow_aliases)
 
             return valid if valid.exception
           end
@@ -205,9 +207,9 @@ module YAMLSchema
           if schema["items"]
             sub_schema = schema["items"]
             node.children.each_slice(2) do |key, val|
-              valid = _validate("string", {}, key, valid, aliases, path)
+              valid = _validate("string", {}, key, valid, aliases, path, allow_aliases)
               return valid if valid.exception
-              valid = _validate(sub_schema["type"], sub_schema, val, valid, aliases, path + [key.value])
+              valid = _validate(sub_schema["type"], sub_schema, val, valid, aliases, path + [key.value], allow_aliases)
               return valid if valid.exception
             end
           else
@@ -230,12 +232,12 @@ module YAMLSchema
         if schema["items"]
           node.children.each_with_index { |item, i|
             sub_schema = schema["items"]
-            valid = _validate sub_schema["type"], sub_schema, item, valid, aliases, path + [i]
+            valid = _validate sub_schema["type"], sub_schema, item, valid, aliases, path + [i], allow_aliases
           }
         elsif schema["prefixItems"]
           node.children.each_with_index { |item, i|
             sub_schema = schema["prefixItems"][i]
-            valid = _validate sub_schema["type"], sub_schema, item, valid, aliases, path + [i]
+            valid = _validate sub_schema["type"], sub_schema, item, valid, aliases, path + [i], allow_aliases
           }
         else
           raise NotImplementedError
