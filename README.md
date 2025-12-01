@@ -11,14 +11,14 @@ A library for validating YAML documents against a schema.
 ### Basic Validation
 
 ```ruby
-require 'yaml-schema'
+require "yaml-schema"
 
 schema = {
-  type: 'object',
-  properties: {
-    name: { type: 'string' },
-    age: { type: 'integer' },
-    active: { type: 'boolean' }
+  "type" => "object",
+  "properties" => {
+    "name" => { "type" => "string" },
+    "age" => { "type" => "integer" },
+    "active" => { "type" => "boolean" }
   }
 }
 
@@ -53,9 +53,9 @@ Specify multiple valid types for a field:
 
 ```ruby
 schema = {
-  type: 'object',
-  properties: {
-    value: { type: ['null', 'string'] }
+  "type" => "object",
+  "properties" => {
+    "value" => { "type" => ["null", "string"] }
   }
 }
 ```
@@ -64,17 +64,17 @@ schema = {
 
 ```ruby
 schema = {
-  type: 'object',
-  properties: {
-    users: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          tags: {
-            type: 'array',
-            items: { type: 'string' }
+  "type" => "object",
+  "properties" => {
+    "users" => {
+      "type" => "array",
+      "items" => {
+        "type" => "object",
+        "properties" => {
+          "name" => { "type" => "string" },
+          "tags" => {
+            "type" => "array",
+            "items" => { "type" => "string" }
           }
         }
       }

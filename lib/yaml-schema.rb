@@ -99,7 +99,7 @@ module YAMLSchema
     # Given a particular schema, validate that the node conforms to the
     # schema. Raises an exception if it is invalid
     def validate(schema, node, aliases: true)
-      val = _validate(schema["type"], schema, node, Valid, {}, ["root"], aliases)
+      val = _validate(schema["type"], schema, node, Valid, {}, [], aliases)
       if val.exception
         raise val
       else
@@ -111,7 +111,7 @@ module YAMLSchema
     # Given a particular schema, validate that the node conforms to the
     # schema. Returns an error object if the node is invalid, otherwise false.
     def invalid?(schema, node, aliases: true)
-      res = _validate(schema["type"], schema, node, Valid, {}, ["root"], aliases)
+      res = _validate(schema["type"], schema, node, Valid, {}, [], aliases)
       if Valid == res
         false
       else
@@ -122,7 +122,7 @@ module YAMLSchema
     private
 
     def make_error(klass, msg, path)
-      ex = klass.new msg + " path: #{path.join(" -> ")}"
+      ex = klass.new msg + " path: /#{path.join("/")}"
       ex.set_backtrace caller
       ex
     end
@@ -188,7 +188,7 @@ module YAMLSchema
               if schema["additionalProperties"]
                 schema["additionalProperties"]
               else
-                return make_error UnexpectedProperty, "unknown property #{key.value.dump}", path
+                return make_error UnexpectedProperty, "unknown property #{key.value.dump}", path + [key.value]
               end
             }
 
